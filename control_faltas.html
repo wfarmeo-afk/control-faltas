@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Faltas</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f4f6;min-height:100vh;color:#1a1a1a}
+
+  #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}
+  .login-card{background:#fff;border-radius:14px;border:1px solid #e0e0e0;padding:2.5rem 2rem;width:340px;max-width:100%;text-align:center}
+  .login-card h1{font-size:20px;font-weight:600;margin-bottom:6px}
+  .login-card p{font-size:13px;color:#666;margin-bottom:1.5rem}
+  .login-card input{width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:15px;text-align:center;letter-spacing:3px;margin-bottom:10px;outline:none}
+  .login-card input:focus{border-color:#6c47d8}
+  .login-card button{width:100%;background:#6c47d8;color:#fff;border:none;border-radius:8px;padding:11px;font-size:15px;font-weight:500;cursor:pointer}
+  .login-card button:hover{background:#5a38c0}
+  .login-error{color:#c0392b;font-size:13px;margin-top:8px;display:none}
+  .login-icon{font-size:42px;margin-bottom:1rem}
+
+  #app{display:none}
+  header{background:#fff;border-bottom:1px solid #e0e0e0;padding:0 1.5rem;height:56px;display:flex;align-items:center;justify-content:space-between}
+  header h1{font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .header-right{display:flex;align-items:center;gap:10px}
+  .sync-indicator{font-size:12px;color:#888;display:flex;align-items:center;gap:5px}
+  .sync-dot{width:7px;height:7px;border-radius:50%;background:#27ae60;transition:background .3s}
+  .sync-dot.syncing{background:#f39c12;animation:pulse 1s infinite}
+  .sync-dot.error{background:#e74c3c}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .btn-logout{font-size:12px;color:#888;background:none;border:1px solid #ddd;border-radius:6px;padding:5px 10px;cursor:pointer}
+  .btn-logout:hover{background:#f5f5f5}
+
+  main{max-width:920px;margin:0 auto;padding:1.5rem}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1.5rem}
+  .stat{background:#fff;border-radius:10px;border:1px solid #e8e8e8;padding:14px 16px}
+  .stat-label{font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+  .stat-val{font-size:26px;font-weight:600}
+  .stat-val.purple{color:#6c47d8}
+  .stat-val.red{color:#c0392b}
+  .stat-val.default{color:#1a1a1a}
+
+  .top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:10px}
+  .top-bar h2{font-size:15px;font-weight:600;color:#333}
+  .btn-primary{background:#6c47d8;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:14px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .btn-primary:hover{background:#5a38c0}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed}
+
+  .filter-bar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap}
+  .filter-bar input,.filter-bar select{font-size:13px;padding:7px 10px;border-radius:8px;border:1px solid #ddd;background:#fff;color:#333;outline:none}
+  .filter-bar input{flex:1;min-width:140px}
+  .filter-bar input:focus,.filter-bar select:focus{border-color:#6c47d8}
+
+  .table-wrap{background:#fff;border-radius:12px;border:1px solid #e8e8e8;overflow:hidden}
+  table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+  th{text-align:left;font-size:11px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;border-bottom:1px solid #f0f0f0;background:#fafafa}
+  td{padding:11px 14px;border-bottom:1px solid #f5f5f5;color:#333;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#fafcff}
+
+  .col-emp{width:20%}.col-tipo{width:22%}.col-fecha{width:12%}.col-grav{width:11%}.col-desc{width:25%}.col-acc{width:10%;text-align:center}
+  th.col-acc{text-align:center}
+
+  .emp-init{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:#eeeafc;color:#5a38c0;font-size:11px;font-weight:600;flex-shrink:0;margin-right:8px}
+  .name-cell{display:flex;align-items:center}
+
+  .badge{display:inline-block;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px}
+  .badge-grave{background:#fde8e8;color:#922b21}
+  .badge-moderada{background:#fef3d0;color:#7d5a00}
+  .badge-leve{background:#e8f8f0;color:#1a6640}
+
+  .btn-del{background:none;border:none;cursor:pointer;color:#bbb;font-size:15px;padding:4px 6px;border-radius:6px}
+  .btn-del:hover{color:#c0392b;background:#fde8e8}
+  .btn-edit{background:none;border:none;cursor:pointer;color:#bbb;font-size:15px;padding:4px 6px;border-radius:6px;margin-right:2px}
+  .btn-edit:hover{color:#6c47d8;background:#eeeafc}
+
+  .empty{text-align:center;padding:3rem;color:#aaa;font-size:14px}
+  .loading{text-align:center;padding:2.5rem;color:#999;font-size:14px}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:1rem}
+  .modal{background:#fff;border-radius:14px;padding:1.75rem;width:370px;max-width:100%}
+  .modal h3{font-size:16px;font-weight:600;margin-bottom:1.25rem}
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:500}
+  .field input,.field select,.field textarea{width:100%;font-size:13px;padding:9px 12px;border-radius:8px;border:1px solid #ddd;background:#fff;color:#333;font-family:inherit;outline:none}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:#6c47d8}
+  .field textarea{resize:vertical;min-height:70px}
+  .modal-btns{display:flex;gap:8px;margin-top:1.25rem;justify-content:flex-end}
+  .btn-sec{background:none;border:1px solid #ddd;border-radius:8px;padding:8px 18px;font-size:13px;cursor:pointer;color:#333}
+  .btn-sec:hover{background:#f5f5f5}
+
+  @media(max-width:600px){
+    main{padding:1rem}
+    .col-desc,.col-grav{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-icon">📋</div>
+    <h1>Control de Faltas</h1>
+    <p>Ingresá la clave de acceso para continuar</p>
+    <input type="password" id="pwd-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()">Ingresar</button>
+    <div class="login-error" id="login-error">Clave incorrecta. Intentá de nuevo.</div>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <h1>📋 Control de Faltas</h1>
+    <div class="header-right">
+      <div class="sync-indicator">
+        <div class="sync-dot" id="sync-dot"></div>
+        <span id="sync-label">Sincronizado</span>
+      </div>
+      <button class="btn-logout" onclick="logout()">Salir</button>
+    </div>
+  </header>
+  <main>
+    <div class="stats" id="stats">
+      <div class="stat"><div class="stat-label">Total registradas</div><div class="stat-val purple">—</div></div>
+      <div class="stat"><div class="stat-label">Este mes</div><div class="stat-val default">—</div></div>
+      <div class="stat"><div class="stat-label">Empleados con faltas</div><div class="stat-val default">—</div></div>
+      <div class="stat"><div class="stat-label">Faltas graves</div><div class="stat-val red">—</div></div>
+    </div>
+    <div class="top-bar">
+      <h2>Registro de faltas</h2>
+      <button class="btn-primary" onclick="openModal()">+ Registrar falta</button>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="search" placeholder="Buscar empleado..." oninput="renderTable()">
+      <select id="filtTipo" onchange="renderTable()">
+        <option value="">Todos los tipos</option>
+        <option>Ausencia sin aviso</option>
+        <option>Llegada tarde</option>
+        <option>Incumplimiento de tarea</option>
+        <option>Falta de comunicación</option>
+        <option>Baja calidad de trabajo</option>
+        <option>Otro</option>
+      </select>
+      <select id="filtGrav" onchange="renderTable()">
+        <option value="">Toda gravedad</option>
+        <option value="grave">Grave</option>
+        <option value="moderada">Moderada</option>
+        <option value="leve">Leve</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <div id="loading" class="loading">⏳ Cargando datos...</div>
+      <table id="main-table" style="display:none">
+        <thead>
+          <tr>
+            <th class="col-emp">Empleado</th>
+            <th class="col-tipo">Tipo de falta</th>
+            <th class="col-fecha">Fecha</th>
+            <th class="col-grav">Gravedad</th>
+            <th class="col-desc">Descripción</th>
+            <th class="col-acc">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="empty" class="empty" style="display:none">📭 Sin registros todavía. Hacé clic en "Registrar falta" para empezar.</div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-bg" id="modal" style="display:none">
+  <div class="modal">
+    <h3 id="modal-title">Nueva falta</h3>
+    <div class="field"><label>Empleado *</label><input id="f-emp" placeholder="Nombre completo"></div>
+    <div class="field"><label>Tipo de falta *</label>
+      <select id="f-tipo">
+        <option value="">Seleccionar...</option>
+        <option>Ausencia sin aviso</option>
+        <option>Llegada tarde</option>
+        <option>Incumplimiento de tarea</option>
+        <option>Falta de comunicación</option>
+        <option>Baja calidad de trabajo</option>
+        <option>Otro</option>
+      </select>
+    </div>
+    <div class="field"><label>Fecha *</label><input type="date" id="f-fecha"></div>
+    <div class="field"><label>Gravedad</label>
+      <select id="f-grav">
+        <option value="leve">Leve</option>
+        <option value="moderada">Moderada</option>
+        <option value="grave">Grave</option>
+      </select>
+    </div>
+    <div class="field"><label>Descripción / detalle</label><textarea id="f-desc" placeholder="Qué pasó exactamente..."></textarea></div>
+    <div class="modal-btns">
+      <button class="btn-sec" onclick="closeModal()">Cancelar</button>
+      <button class="btn-primary" id="btn-save" onclick="save()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const PASS = 'gabiadmin';
+  const API  = 'https://sheetdb.io/api/v1/eam7he96hc7gv';
+  let records = [];
+  let editId  = null;
+
+  function doLogin() {
+    if (document.getElementById('pwd-input').value !== PASS) {
+      document.getElementById('login-error').style.display = 'block';
+      document.getElementById('pwd-input').value = '';
+      return;
+    }
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    loadData();
+    setInterval(loadData, 30000);
+  }
+
+  function logout() {
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('pwd-input').value = '';
+    records = [];
+  }
+
+  function setSyncState(s) {
+    const dot = document.getElementById('sync-dot');
+    const lbl = document.getElementById('sync-label');
+    dot.className = 'sync-dot' + (s === 'syncing' ? ' syncing' : s === 'error' ? ' error' : '');
+    lbl.textContent = s === 'syncing' ? 'Sincronizando...' : s === 'error' ? 'Error de conexión' : 'Sincronizado';
+  }
+
+  async function loadData() {
+    setSyncState('syncing');
+    try {
+      const res = await fetch(API);
+      if (!res.ok) throw new Error();
+      const rows = await res.json();
+      records = (rows || []).filter(r => r.id);
+      setSyncState('ok');
+    } catch(e) {
+      setSyncState('error');
+    }
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('main-table').style.display = '';
+    renderTable();
+    renderStats();
+  }
+
+  async function addRow(entry) {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ data: entry })
+    });
+    if (!res.ok) throw new Error();
+  }
+
+  async function updateRow(entry) {
+    const res = await fetch(`${API}/id/${entry.id}`, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ data: entry })
+    });
+    if (!res.ok) throw new Error();
+  }
+
+  async function deleteRow(id) {
+    const res = await fetch(`${API}/id/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error();
+  }
+
+  function initials(name) {
+    return name.trim().split(/\s+/).slice(0,2).map(w=>w[0].toUpperCase()).join('');
+  }
+
+  function formatDate(d) {
+    if (!d) return '';
+    const parts = d.split('-');
+    if (parts.length !== 3) return d;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+
+  function renderStats() {
+    const total = records.length;
+    const graves = records.filter(r => r.grav === 'grave').length;
+    const emps = new Set(records.map(r => (r.emp||'').trim().toLowerCase())).size;
+    const hoy = new Date();
+    const mes = records.filter(r => {
+      if (!r.fecha) return false;
+      const d = new Date(r.fecha + 'T00:00:00');
+      return d.getMonth() === hoy.getMonth() && d.getFullYear() === hoy.getFullYear();
+    }).length;
+    document.getElementById('stats').innerHTML = `
+      <div class="stat"><div class="stat-label">Total registradas</div><div class="stat-val purple">${total}</div></div>
+      <div class="stat"><div class="stat-label">Este mes</div><div class="stat-val default">${mes}</div></div>
+      <div class="stat"><div class="stat-label">Empleados con faltas</div><div class="stat-val default">${emps}</div></div>
+      <div class="stat"><div class="stat-label">Faltas graves</div><div class="stat-val red">${graves}</div></div>
+    `;
+  }
+
+  function renderTable() {
+    const q    = document.getElementById('search').value.toLowerCase();
+    const tipo = document.getElementById('filtTipo').value;
+    const grav = document.getElementById('filtGrav').value;
+    let list = records.filter(r => {
+      return (!q    || (r.emp||'').toLowerCase().includes(q)) &&
+             (!tipo || r.tipo === tipo) &&
+             (!grav || r.grav === grav);
+    }).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
+
+    const tbody = document.getElementById('tbody');
+    const empty = document.getElementById('empty');
+    if (!list.length) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+    empty.style.display = 'none';
+
+    const bc = g => g==='grave'?'badge-grave':g==='moderada'?'badge-moderada':'badge-leve';
+    const bl = g => ({grave:'Grave',moderada:'Moderada',leve:'Leve'}[g]||g);
+
+    tbody.innerHTML = list.map(r => `
+      <tr>
+        <td><div class="name-cell"><span class="emp-init">${initials(r.emp||'?')}</span><span>${r.emp||''}</span></div></td>
+        <td style="white-space:normal;word-break:break-word">${r.tipo||'—'}</td>
+        <td>${formatDate(r.fecha)}</td>
+        <td><span class="badge ${bc(r.grav)}">${bl(r.grav)}</span></td>
+        <td style="white-space:normal;word-break:break-word;color:#777">${r.desc||'—'}</td>
+        <td style="text-align:center;white-space:nowrap">
+          <button class="btn-edit" onclick="editRecord('${r.id}')" title="Editar">✏️</button>
+          <button class="btn-del"  onclick="delRecord('${r.id}')"  title="Eliminar">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function openModal(id=null) {
+    editId = id;
+    const today = new Date().toISOString().split('T')[0];
+    if (id) {
+      const r = records.find(x => x.id === id);
+      document.getElementById('modal-title').textContent = 'Editar falta';
+      document.getElementById('f-emp').value  = r.emp  || '';
+      document.getElementById('f-tipo').value = r.tipo || '';
+      document.getElementById('f-fecha').value= r.fecha|| '';
+      document.getElementById('f-grav').value = r.grav || 'leve';
+      document.getElementById('f-desc').value = r.desc || '';
+    } else {
+      document.getElementById('modal-title').textContent = 'Nueva falta';
+      document.getElementById('f-emp').value  = '';
+      document.getElementById('f-tipo').value = '';
+      document.getElementById('f-fecha').value= today;
+      document.getElementById('f-grav').value = 'leve';
+      document.getElementById('f-desc').value = '';
+    }
+    document.getElementById('modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('f-emp').focus(), 50);
+  }
+
+  function closeModal() { document.getElementById('modal').style.display = 'none'; editId = null; }
+
+  async function save() {
+    const emp   = document.getElementById('f-emp').value.trim();
+    const tipo  = document.getElementById('f-tipo').value;
+    const fecha = document.getElementById('f-fecha').value;
+    if (!emp || !tipo || !fecha) { alert('Completá empleado, tipo de falta y fecha.'); return; }
+
+    const btn = document.getElementById('btn-save');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    setSyncState('syncing');
+
+    const entry = {
+      id:    editId || Date.now().toString(),
+      emp, tipo, fecha,
+      grav:  document.getElementById('f-grav').value,
+      desc:  document.getElementById('f-desc').value.trim()
+    };
+
+    try {
+      if (editId) {
+        await updateRow(entry);
+        records = records.map(r => r.id === editId ? entry : r);
+      } else {
+        await addRow(entry);
+        records.push(entry);
+      }
+      setSyncState('ok');
+      closeModal();
+      renderTable();
+      renderStats();
+    } catch(e) {
+      setSyncState('error');
+      alert('No se pudo guardar. Revisá la conexión e intentá de nuevo.');
+    }
+    btn.disabled = false; btn.textContent = 'Guardar';
+  }
+
+  function editRecord(id) { openModal(id); }
+
+  async function delRecord(id) {
+    if (!confirm('¿Eliminar este registro?')) return;
+    setSyncState('syncing');
+    try {
+      await deleteRow(id);
+      records = records.filter(r => r.id !== id);
+      setSyncState('ok');
+      renderTable();
+      renderStats();
+    } catch(e) {
+      setSyncState('error');
+      alert('No se pudo eliminar. Revisá la conexión.');
+    }
+  }
+
+  document.getElementById('modal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+</script>
+</body>
+</html>
